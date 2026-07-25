@@ -1,0 +1,14 @@
+{
+  "domain": "zodiac_i2d",
+  "name": "Zodiac i2d Pool Robot",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/dgageot/zodiac-i2d",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/dgageot/zodiac-i2d/issues",
+  "homeassistant": "2025.2.0",
+  "requirements": [],
+  "version": "0.1.0"
+}

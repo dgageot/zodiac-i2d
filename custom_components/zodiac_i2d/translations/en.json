@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Sign in with your iAqualink account.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "description": "Re-enter the password for {email}.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid credentials.",
+      "cannot_connect": "Could not reach the iAqualink cloud.",
+      "no_robots": "No i2d robot was found on this account. This integration only supports robots reporting device type i2d_robot."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Status",
+        "state": {
+          "idle": "Idle",
+          "starting": "Starting",
+          "cleaning": "Cleaning",
+          "finished": "Finished",
+          "paused": "Paused",
+          "error_d": "Error D",
+          "error_e": "Error E"
+        }
+      },
+      "error": {
+        "name": "Error",
+        "state": {
+          "no_error": "No error",
+          "pump_short_circuit": "Pump short circuit",
+          "right_drive_motor_short_circuit": "Right drive motor short circuit",
+          "left_drive_motor_short_circuit": "Left drive motor short circuit",
+          "pump_motor_overconsumption": "Pump motor overconsumption",
+          "right_drive_motor_overconsumption": "Right drive motor overconsumption",
+          "left_drive_motor_overconsumption": "Left drive motor overconsumption",
+          "floats_on_surface": "Floating on surface",
+          "running_out_of_water": "Out of water",
+          "communication_error": "Communication error"
+        }
+      },
+      "mode": {
+        "name": "Cleaning mode",
+        "state": {
+          "floor_only": "Floor only",
+          "floor_and_walls": "Floor and walls",
+          "waterline": "Waterline",
+          "floor_only_quick": "Floor only (quick)",
+          "floor_only_high": "Floor only (high power)",
+          "floor_and_walls_standard": "Floor and walls (standard)",
+          "floor_and_walls_high": "Floor and walls (high power)",
+          "waterline_standard": "Waterline (standard)",
+          "waterline_high": "Waterline (high power)",
+          "waterline_custom": "Waterline (custom)"
+        }
+      },
+      "minutes_remaining": { "name": "Time remaining" },
+      "hour_counter": { "name": "Hour counter" },
+      "minute_counter": { "name": "Minute counter" }
+    },
+    "binary_sensor": {
+      "canister_full": { "name": "Canister full" },
+      "error_problem": { "name": "Problem" }
+    }
+  }
+}
