@@ -86,8 +86,10 @@ class ZodiacApi:
                     raise ZodiacAuthError("iAqualink rejected the credentials")
                 response.raise_for_status()
                 body = await response.json()
+        except TimeoutError:
+            raise ZodiacError("login request timed out") from None
         except aiohttp.ClientError as err:
-            raise ZodiacError(f"login request failed: {type(err).__name__}") from err
+            raise ZodiacError(f"login request failed: {type(err).__name__}") from None
 
         try:
             self._auth_token = body["authentication_token"]
@@ -134,11 +136,13 @@ class ZodiacApi:
                         raise ZodiacError(f"server error from {url}: {text[:200]}")
                     response.raise_for_status()
                     return await response.json()
+            except TimeoutError:
+                raise ZodiacError(f"request to {url} timed out") from None
             except aiohttp.ClientError as err:
                 # ClientResponseError includes the credential-bearing URL.
                 raise ZodiacError(
                     f"request to {url} failed: {type(err).__name__}"
-                ) from err
+                ) from None
         raise ZodiacError("request loop exhausted")
 
     async def async_get_robots(self) -> list[dict[str, Any]]:

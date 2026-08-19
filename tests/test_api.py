@@ -37,6 +37,49 @@ api = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(api)
 
 
+class RequestContext:
+    def __init__(self, error):
+        self.error = error
+
+    async def __aenter__(self):
+        raise self.error
+
+    async def __aexit__(self, *args):
+        pass
+
+
+class FailingSession:
+    def __init__(self, error):
+        self.error = error
+
+    def request(self, *args, **kwargs):
+        return RequestContext(self.error)
+
+
+class TestRequestErrors(unittest.IsolatedAsyncioTestCase):
+    def api_with_error(self, error):
+        client = api.ZodiacApi(FailingSession(error), "email", "password")
+        client._auth_token = "secret"
+        client._user_id = "42"
+        return client
+
+    async def test_drops_client_error_cause(self):
+        client = self.api_with_error(ClientError("secret URL"))
+
+        with self.assertRaises(api.ZodiacError) as raised:
+            await client._request("GET", "https://example.com/devices")
+
+        self.assertIsNone(raised.exception.__cause__)
+        self.assertTrue(raised.exception.__suppress_context__)
+        self.assertNotIn("secret", str(raised.exception))
+
+    async def test_translates_timeout(self):
+        client = self.api_with_error(TimeoutError())
+
+        with self.assertRaisesRegex(api.ZodiacError, "timed out"):
+            await client._request("GET", "https://example.com/devices")
+
+
 class TestCommandResponses(unittest.IsolatedAsyncioTestCase):
     def api_returning(self, response):
         client = api.ZodiacApi(None, "email", "password")
