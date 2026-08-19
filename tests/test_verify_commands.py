@@ -33,19 +33,39 @@ class TestCommandTookEffect(unittest.TestCase):
 
         self.assertFalse(verify_commands.command_took_effect("stop", before, after))
 
-    def test_detects_state_change(self):
+    def test_ignores_wrong_state_change(self):
+        before = build_frame(state=0x01)
+        after = build_frame(state=0x0D)
+
+        self.assertFalse(verify_commands.command_took_effect("start", before, after))
+
+    def test_detects_expected_state_change(self):
         before = build_frame(state=0x01)
         after = build_frame(state=0x02)
 
         self.assertTrue(verify_commands.command_took_effect("start", before, after))
 
-    def test_mode_command_uses_mode_change(self):
+    def test_mode_command_rejects_wrong_mode(self):
+        before = build_frame(state=0x01, mode=0x00)
+        after = build_frame(state=0x01, mode=0x04)
+
+        self.assertFalse(
+            verify_commands.command_took_effect("mode_floor_and_walls", before, after)
+        )
+
+    def test_mode_command_detects_expected_mode(self):
         before = build_frame(state=0x01, mode=0x00)
         after = build_frame(state=0x01, mode=0x03)
 
         self.assertTrue(
             verify_commands.command_took_effect("mode_floor_and_walls", before, after)
         )
+
+    def test_already_at_target_is_not_proof(self):
+        before = build_frame(state=0x04)
+        after = build_frame(state=0x04)
+
+        self.assertFalse(verify_commands.command_took_effect("start", before, after))
 
     def test_rejects_missing_frame(self):
         self.assertFalse(verify_commands.command_took_effect("start", "", ""))

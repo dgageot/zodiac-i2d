@@ -34,7 +34,18 @@ sys.path.insert(
     str(pathlib.Path(__file__).resolve().parents[1] / "custom_components" / "zodiac_i2d"),
 )
 
-from frame import FrameError, parse_frame  # noqa: E402
+from frame import (  # noqa: E402
+    MODE_FLOOR_AND_WALLS,
+    MODE_FLOOR_ONLY,
+    MODE_WATERLINE,
+    STATE_CLEANING,
+    STATE_FINISHED,
+    STATE_IDLE,
+    STATE_PAUSED,
+    STATE_STARTING,
+    FrameError,
+    parse_frame,
+)
 
 API_KEY = "EOOEMOW4YR6QNB07"
 LOGIN_URL = "https://prod.zodiac-io.com/users/v1/login"
@@ -52,6 +63,17 @@ COMMANDS = {
 }
 
 WRITE_COMMANDS = set(COMMANDS) - {"status"}
+
+EXPECTED_STATES = {
+    "start": {STATE_STARTING, STATE_CLEANING},
+    "stop": {STATE_IDLE, STATE_FINISHED, STATE_PAUSED},
+    "return_home": {STATE_IDLE, STATE_FINISHED},
+}
+EXPECTED_MODES = {
+    "mode_floor_only": MODE_FLOOR_ONLY,
+    "mode_floor_and_walls": MODE_FLOOR_AND_WALLS,
+    "mode_waterline": MODE_WATERLINE,
+}
 
 
 def call(method, url, *, params=None, body=None):
@@ -102,9 +124,16 @@ def command_took_effect(command, before, after):
     except FrameError:
         return False
 
-    if command.startswith("mode_"):
-        return current.mode_code != previous.mode_code
-    return current.state_code != previous.state_code
+    if command in EXPECTED_MODES:
+        expected = EXPECTED_MODES[command]
+        return current.mode_code == expected and previous.mode_code != expected
+
+    expected = EXPECTED_STATES.get(command)
+    return (
+        expected is not None
+        and current.state_code in expected
+        and previous.state_code != current.state_code
+    )
 
 
 def main() -> int:
