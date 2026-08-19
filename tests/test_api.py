@@ -7,7 +7,7 @@ import pathlib
 import sys
 import types
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 
 class ClientError(Exception):
@@ -22,7 +22,6 @@ class ClientTimeout:
 aiohttp = types.ModuleType("aiohttp")
 setattr(aiohttp, "ClientError", ClientError)
 setattr(aiohttp, "ClientTimeout", ClientTimeout)
-sys.modules.setdefault("aiohttp", aiohttp)
 
 module_path = (
     pathlib.Path(__file__).resolve().parents[1]
@@ -34,7 +33,8 @@ spec = importlib.util.spec_from_file_location("zodiac_i2d_api", module_path)
 assert spec is not None
 assert spec.loader is not None
 api = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(api)
+with patch.dict(sys.modules, {"aiohttp": aiohttp}):
+    spec.loader.exec_module(api)
 
 
 class RequestContext:

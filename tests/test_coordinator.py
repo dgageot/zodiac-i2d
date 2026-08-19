@@ -7,7 +7,7 @@ import pathlib
 import sys
 import types
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 
 class ConfigEntryAuthFailed(Exception):
@@ -46,21 +46,18 @@ helpers = types.ModuleType("homeassistant.helpers")
 update_coordinator = types.ModuleType("homeassistant.helpers.update_coordinator")
 update_coordinator.DataUpdateCoordinator = DataUpdateCoordinator
 update_coordinator.UpdateFailed = UpdateFailed
-sys.modules.update(
-    {
-        "homeassistant": homeassistant,
-        "homeassistant.config_entries": config_entries,
-        "homeassistant.core": core,
-        "homeassistant.exceptions": exceptions,
-        "homeassistant.helpers": helpers,
-        "homeassistant.helpers.update_coordinator": update_coordinator,
-    }
-)
+homeassistant_modules = {
+    "homeassistant": homeassistant,
+    "homeassistant.config_entries": config_entries,
+    "homeassistant.core": core,
+    "homeassistant.exceptions": exceptions,
+    "homeassistant.helpers": helpers,
+    "homeassistant.helpers.update_coordinator": update_coordinator,
+}
 
 package_name = "zodiac_i2d_test"
 package = types.ModuleType(package_name)
 package.__path__ = []
-sys.modules[package_name] = package
 
 api_module = types.ModuleType(f"{package_name}.api")
 
@@ -81,18 +78,15 @@ api_module.ZodiacApi = object
 api_module.ZodiacError = ZodiacError
 api_module.ZodiacAuthError = ZodiacAuthError
 api_module.ZodiacOfflineError = ZodiacOfflineError
-sys.modules[api_module.__name__] = api_module
 
 const_module = types.ModuleType(f"{package_name}.const")
 const_module.DEFAULT_SCAN_INTERVAL = 30
 const_module.DOMAIN = "zodiac_i2d"
-sys.modules[const_module.__name__] = const_module
 
 frame_module = types.ModuleType(f"{package_name}.frame")
 frame_module.Frame = object
 frame_module.FrameError = ValueError
 frame_module.parse_frame = lambda payload: payload
-sys.modules[frame_module.__name__] = frame_module
 
 module_path = (
     pathlib.Path(__file__).resolve().parents[1]
@@ -106,8 +100,16 @@ spec = importlib.util.spec_from_file_location(
 assert spec is not None
 assert spec.loader is not None
 coordinator_module = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = coordinator_module
-spec.loader.exec_module(coordinator_module)
+modules = {
+    **homeassistant_modules,
+    package_name: package,
+    api_module.__name__: api_module,
+    const_module.__name__: const_module,
+    frame_module.__name__: frame_module,
+    spec.name: coordinator_module,
+}
+with patch.dict(sys.modules, modules):
+    spec.loader.exec_module(coordinator_module)
 
 
 class TestCommandErrors(unittest.IsolatedAsyncioTestCase):
