@@ -25,7 +25,16 @@
       "reauth_successful": "Re-authentication was successful."
     }
   },
+  "exceptions": {
+    "inactive_cleaning_cycle": {
+      "message": "Cleaning time can only be adjusted during an active cycle."
+    }
+  },
   "entity": {
+    "button": {
+      "extend_duration": { "name": "Extend cleaning by 30 minutes" },
+      "shorten_duration": { "name": "Shorten cleaning by 30 minutes" }
+    },
     "sensor": {
       "state": {
         "name": "Status",

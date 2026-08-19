@@ -56,6 +56,8 @@ COMMANDS = {
     "status": "OA11",
     "start": "0A1240",
     "stop": "0A1210",
+    "shorten_duration": "0A1300",
+    "extend_duration": "0A1301",
     "return_home": "0A1701",
     "mode_floor_only": "0A1280",
     "mode_floor_and_walls": "0A1283",
@@ -68,6 +70,10 @@ EXPECTED_STATES = {
     "start": {STATE_STARTING, STATE_CLEANING},
     "stop": {STATE_IDLE, STATE_FINISHED, STATE_PAUSED},
     "return_home": {STATE_IDLE, STATE_FINISHED},
+}
+DURATION_DELTAS = {
+    "shorten_duration": -30,
+    "extend_duration": 30,
 }
 EXPECTED_MODES = {
     "mode_floor_only": MODE_FLOOR_ONLY,
@@ -124,6 +130,11 @@ def command_took_effect(command, before, after):
     except FrameError:
         return False
 
+    if command in DURATION_DELTAS:
+        expected_delta = DURATION_DELTAS[command]
+        actual_delta = current.minutes_remaining - previous.minutes_remaining
+        return abs(actual_delta - expected_delta) <= 2
+
     if command in EXPECTED_MODES:
         expected = EXPECTED_MODES[command]
         return current.mode_code == expected and previous.mode_code != expected
@@ -140,6 +151,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--email", required=True)
     ap.add_argument("--password-file", help="file whose first line is the password")
+    ap.add_argument("--serial", help="robot serial; required for writes on multi-robot accounts")
     ap.add_argument("--send", choices=sorted(COMMANDS), default="status")
     ap.add_argument(
         "--i-understand-this-moves-my-robot",
@@ -183,9 +195,14 @@ def main() -> int:
     }
     status, devices = call("GET", DEVICES_URL, params=creds)
     robots = [d for d in devices if d.get("device_type") == "i2d_robot"]
+    if args.serial:
+        robots = [robot for robot in robots if robot.get("serial_number") == args.serial]
     if not robots:
-        print("no i2d_robot on this account", file=sys.stderr)
+        print("no matching i2d_robot on this account", file=sys.stderr)
         return 1
+    if args.send in WRITE_COMMANDS and len(robots) != 1:
+        print("--serial is required for writes on multi-robot accounts", file=sys.stderr)
+        return 2
 
     for robot in robots:
         serial = robot["serial_number"]
@@ -197,6 +214,22 @@ def main() -> int:
 
         if args.send == "status":
             continue
+
+        if args.send in DURATION_DELTAS:
+            try:
+                before_frame = parse_frame(before)
+            except FrameError as err:
+                print(
+                    f"  refusing duration write without a valid status frame: {err}",
+                    file=sys.stderr,
+                )
+                continue
+            if not before_frame.is_cleaning or before_frame.has_error:
+                print(
+                    "  refusing duration write unless the robot is actively cleaning without errors",
+                    file=sys.stderr,
+                )
+                continue
 
         code = COMMANDS[args.send]
         print(f"  sending {args.send} (request={code}) ...")
@@ -215,7 +248,7 @@ def main() -> int:
                 print("  -> command took effect")
                 break
         else:
-            print("  -> no change detected; the write code may be wrong for this model")
+            print("  -> expected change not observed; result is inconclusive")
 
     return 0
 

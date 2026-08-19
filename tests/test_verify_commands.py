@@ -61,6 +61,22 @@ class TestCommandTookEffect(unittest.TestCase):
             verify_commands.command_took_effect("mode_floor_and_walls", before, after)
         )
 
+    def test_duration_command_ignores_normal_countdown(self):
+        before = build_frame(state=0x04, remaining=60)
+        after = build_frame(state=0x04, remaining=59)
+
+        self.assertFalse(
+            verify_commands.command_took_effect("shorten_duration", before, after)
+        )
+
+    def test_duration_command_detects_expected_delta(self):
+        before = build_frame(state=0x04, remaining=60)
+        after = build_frame(state=0x04, remaining=89)
+
+        self.assertTrue(
+            verify_commands.command_took_effect("extend_duration", before, after)
+        )
+
     def test_already_at_target_is_not_proof(self):
         before = build_frame(state=0x04)
         after = build_frame(state=0x04)

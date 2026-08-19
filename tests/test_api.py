@@ -105,6 +105,28 @@ class TestCommandResponses(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response, "")
 
+    async def test_duration_command_uses_write_timeout(self):
+        client = self.api_returning(
+            {
+                "command": {
+                    "request": api.REQUEST_DURATION_LONGER,
+                    "response": "ack",
+                }
+            }
+        )
+
+        await client.async_send("serial", api.REQUEST_DURATION_LONGER)
+
+        client._request.assert_awaited_once_with(
+            "POST",
+            api.COMMAND_URL.format(serial="serial"),
+            json_body={
+                "command": "/command",
+                "params": f"request={api.REQUEST_DURATION_LONGER}&timeout=800",
+                "user_id": "42",
+            },
+        )
+
     async def test_rejects_embedded_api_error(self):
         client = self.api_returning(
             {"status": "400", "error": {"message": "Invalid command"}}

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    HomeAssistantError,
+    ServiceValidationError,
+)
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import ZodiacApi, ZodiacAuthError, ZodiacError, ZodiacOfflineError
@@ -43,6 +48,18 @@ class ZodiacCoordinator(DataUpdateCoordinator[Frame | None]):
         self.api = api
         self.serial = serial
         self.robot_name = name
+        self._command_lock = asyncio.Lock()
+
+    @property
+    def can_adjust_duration(self) -> bool:
+        """Return whether the active cycle can be adjusted."""
+        frame = self.data
+        return (
+            self.last_update_success
+            and frame is not None
+            and frame.is_cleaning
+            and not frame.has_error
+        )
 
     async def _async_update_data(self) -> Frame | None:
         try:
@@ -64,10 +81,27 @@ class ZodiacCoordinator(DataUpdateCoordinator[Frame | None]):
 
     async def async_send(self, request: str) -> None:
         """Send a command, then refresh so the UI reflects the new state."""
-        try:
-            await self.api.async_send(self.serial, request)
-        except ZodiacAuthError as err:
-            raise ConfigEntryAuthFailed(str(err)) from err
-        except ZodiacError as err:
-            raise HomeAssistantError(str(err)) from err
-        await self.async_request_refresh()
+        await self._async_send(request, require_active_cycle=False)
+
+    async def async_adjust_duration(self, request: str) -> None:
+        """Adjust the duration of the active cleaning cycle."""
+        await self._async_send(request, require_active_cycle=True)
+
+    async def _async_send(self, request: str, *, require_active_cycle: bool) -> None:
+        async with self._command_lock:
+            if require_active_cycle:
+                await self.async_refresh()
+                if not self.can_adjust_duration:
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN,
+                        translation_key="inactive_cleaning_cycle",
+                    )
+
+            try:
+                await self.api.async_send(self.serial, request)
+            except ZodiacAuthError as err:
+                raise ConfigEntryAuthFailed(str(err)) from err
+            except ZodiacError as err:
+                await self.async_refresh()
+                raise HomeAssistantError(str(err)) from err
+            await self.async_refresh()
