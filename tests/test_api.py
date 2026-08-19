@@ -56,6 +56,64 @@ class FailingSession:
         return RequestContext(self.error)
 
 
+class RecordingRequest:
+    def __init__(self, session, response):
+        self.session = session
+        self.response = response
+
+    async def __aenter__(self):
+        return self.response
+
+    async def __aexit__(self, *args):
+        pass
+
+
+class JsonResponse:
+    status = 200
+
+    def raise_for_status(self):
+        pass
+
+    async def json(self):
+        return {"ok": True}
+
+
+class RecordingSession:
+    def __init__(self):
+        self.kwargs = None
+
+    def request(self, *args, **kwargs):
+        self.kwargs = kwargs
+        return RecordingRequest(self, JsonResponse())
+
+
+class TestRequestParameters(unittest.IsolatedAsyncioTestCase):
+    async def test_merges_command_and_credentials_in_query(self):
+        session = RecordingSession()
+        client = api.ZodiacApi(session, "email", "password")
+        client._auth_token = "token"
+        client._user_id = "42"
+
+        await client._request(
+            "POST",
+            "https://example.com/command",
+            params={"command": "/command", "params": "request=0A1301&timeout=800"},
+        )
+
+        assert session.kwargs is not None
+        self.assertEqual(
+            session.kwargs["params"],
+            {
+                "api_key": api.API_KEY,
+                "authentication_token": "token",
+                "user_id": "42",
+                "command": "/command",
+                "params": "request=0A1301&timeout=800",
+            },
+        )
+        self.assertIsNone(session.kwargs["json"])
+
+
 class TestRequestErrors(unittest.IsolatedAsyncioTestCase):
     def api_with_error(self, error):
         client = api.ZodiacApi(FailingSession(error), "email", "password")
@@ -120,10 +178,9 @@ class TestCommandResponses(unittest.IsolatedAsyncioTestCase):
         client._request.assert_awaited_once_with(
             "POST",
             api.COMMAND_URL.format(serial="serial"),
-            json_body={
+            params={
                 "command": "/command",
                 "params": f"request={api.REQUEST_DURATION_LONGER}&timeout=800",
-                "user_id": "42",
             },
         )
 

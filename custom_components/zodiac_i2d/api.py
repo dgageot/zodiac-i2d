@@ -111,7 +111,12 @@ class ZodiacApi:
         }
 
     async def _request(
-        self, method: str, url: str, *, json_body: dict | None = None
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict[str, str] | None = None,
+        json_body: dict | None = None,
     ) -> Any:
         """Perform a request, re-logging in once on 401."""
         for attempt in range(2):
@@ -121,7 +126,7 @@ class ZodiacApi:
                 async with self._session.request(
                     method,
                     url,
-                    params=self._credentials(),
+                    params={**self._credentials(), **(params or {})},
                     json=json_body,
                     timeout=TIMEOUT,
                 ) as response:
@@ -159,17 +164,11 @@ class ZodiacApi:
 
         ``request`` is a code such as ``OA11`` (status) or ``0A1240`` (start).
         """
-        params = f"request={request}"
+        params = {"command": "/command", "params": f"request={request}"}
         if request != REQUEST_STATUS:
-            # The write codes carry the timeout suffix the cleaner expects.
-            params = f"{params}&timeout=800"
-        body = {
-            "command": "/command",
-            "params": params,
-            "user_id": self._user_id,
-        }
+            params["params"] = f"{params['params']}&timeout=800"
         response = await self._request(
-            "POST", COMMAND_URL.format(serial=serial), json_body=body
+            "POST", COMMAND_URL.format(serial=serial), params=params
         )
         if not isinstance(response, dict):
             raise ZodiacError(f"unexpected response shape: {type(response).__name__}")

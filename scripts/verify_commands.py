@@ -96,14 +96,18 @@ def call(method, url, *, params=None, body=None):
 
 
 def send(serial, creds, code):
-    params = f"request={code}"
+    command_params = f"request={code}"
     if code != COMMANDS["status"]:
-        params = f"{params}&timeout=800"
+        command_params = f"{command_params}&timeout=800"
+    params = {
+        **creds,
+        "command": "/command",
+        "params": command_params,
+    }
     return call(
         "POST",
         COMMAND_URL.format(serial=serial),
-        params=creds,
-        body={"command": "/command", "params": params, "user_id": creds["user_id"]},
+        params=params,
     )
 
 

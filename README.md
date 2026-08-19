@@ -30,14 +30,15 @@ The route that actually works is the legacy one, with credentials in the
 ```
 POST https://r-api.iaqualink.net/devices/{serial}/execute_read_command.json
      ?api_key=...&authentication_token=...&user_id=...
-
-{"command": "/command", "params": "request=OA11", "user_id": ...}
+     &command=%2Fcommand&params=request%3DOA11
 
 200 OK
 {"requestID":"","command":{"request":"OA11","response":"0011040000C128B10AC009001F43090F4580"}}
 ```
 
-Both conditions must hold at once, which is likely why this went undiagnosed.
+The command is sent in the query string as one encoded `params` value; the
+request has no JSON body. Both conditions must hold at once, which is likely
+why this went undiagnosed.
 
 ## Install
 
