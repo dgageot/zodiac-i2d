@@ -54,6 +54,12 @@ class ZodiacOfflineError(ZodiacError):
     """The cloud reports the robot as offline."""
 
 
+def _error_message(error: Any) -> str:
+    if isinstance(error, dict):
+        error = error.get("message")
+    return str(error) if error else ""
+
+
 class ZodiacApi:
     """Talks to the legacy iAqualink endpoints for one account."""
 
@@ -161,7 +167,29 @@ class ZodiacApi:
         )
         if not isinstance(response, dict):
             raise ZodiacError(f"unexpected response shape: {type(response).__name__}")
-        return (response.get("command", {}).get("response") or "").strip()
+
+        status = response.get("status")
+        error = response.get("error")
+        if status not in (None, 200, "200") or error:
+            message = _error_message(error)
+            if status in (500, "500") and "offline" in message.lower():
+                raise ZodiacOfflineError("cloud reports robot offline")
+            detail = f": {message}" if message else ""
+            raise ZodiacError(f"command failed with status {status}{detail}")
+
+        command = response.get("command")
+        if not isinstance(command, dict):
+            raise ZodiacError("response is missing the command envelope")
+        if command.get("request") != request:
+            raise ZodiacError("response does not match the command request")
+
+        payload = command.get("response")
+        if not isinstance(payload, str):
+            raise ZodiacError("command response payload is missing")
+        payload = payload.strip()
+        if request != REQUEST_STATUS and not payload:
+            raise ZodiacError("write command was not acknowledged")
+        return payload
 
     async def async_read_status(self, serial: str) -> str:
         """Return the raw status frame hex, or "" if the robot did not answer."""
