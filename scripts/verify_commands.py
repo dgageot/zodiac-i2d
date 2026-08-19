@@ -94,6 +94,19 @@ def show_frame(label, payload):
     )
 
 
+def command_took_effect(command, before, after):
+    """Return whether command-relevant status fields changed."""
+    try:
+        previous = parse_frame(before)
+        current = parse_frame(after)
+    except FrameError:
+        return False
+
+    if command.startswith("mode_"):
+        return current.mode_code != previous.mode_code
+    return current.state_code != previous.state_code
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--email", required=True)
@@ -162,13 +175,15 @@ def main() -> int:
         print(f"  -> HTTP {status}: {json.dumps(response)[:200] if isinstance(response, dict) else response[:200]}")
 
         # Give the cleaner a moment to act on it, then read back.
+        elapsed = 0
         for delay in (5, 10):
             time.sleep(delay)
+            elapsed += delay
             status, response = send(serial, creds, COMMANDS["status"])
             after = response.get("command", {}).get("response", "") if status == 200 else ""
-            show_frame(f"after +{delay}s", after)
-            if after and after != before:
-                print("  -> state changed, command took effect")
+            show_frame(f"after +{elapsed}s", after)
+            if command_took_effect(args.send, before, after):
+                print("  -> command took effect")
                 break
         else:
             print("  -> no change detected; the write code may be wrong for this model")
