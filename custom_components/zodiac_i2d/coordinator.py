@@ -6,7 +6,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import ZodiacApi, ZodiacAuthError, ZodiacError, ZodiacOfflineError
@@ -68,4 +68,6 @@ class ZodiacCoordinator(DataUpdateCoordinator[Frame | None]):
             await self.api.async_send(self.serial, request)
         except ZodiacAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
+        except ZodiacError as err:
+            raise HomeAssistantError(str(err)) from err
         await self.async_request_refresh()
